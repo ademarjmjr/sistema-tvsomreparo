@@ -5,6 +5,10 @@
   <artifactId>demo</artifactId>
   <packaging>jar</packaging>
   <version>s</version>
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+  </properties>
   <name>demo</name>
   <url>http://maven.apache.org</url>
   <dependencies>
