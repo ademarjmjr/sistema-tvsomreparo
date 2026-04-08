@@ -12,6 +12,7 @@ public class App {
         String caminhoArquivo = "OS_Teste_TVSOMREPARO.pdf";
 
         // 3. Simula dados de uma OS real da sua assistência
+        int numeroOs = 1;
         String cliente = "Cliente de Teste Porto Velho";
         String produto = "TV LED 50''"; // Poderia ser Som ou Inversor Solar
         String modelo = "UN50AU7700";
@@ -20,7 +21,7 @@ public class App {
         System.out.println("Iniciando geração da OS...");
 
         // 4. Chama o método para gerar o documento
-        pdfService.gerarOrdemServico(caminhoArquivo, "Cliente Porto Velho", "000.000.000-00", "TV LED", "Samsung", "UN50AU7700", "SN123456", "Arranhado", "Não liga", 350.00);
+        pdfService.gerarOrdemServico(numeroOs, caminhoArquivo, "Cliente Porto Velho", "000.000.000-00", "TV LED", "Samsung", "UN50AU7700", "SN123456", "Arranhado", "Não liga", 350.00);
         // 5. Verifica se o arquivo foi criado com sucesso
         File arquivo = new File(caminhoArquivo);
         if (arquivo.exists()) {
