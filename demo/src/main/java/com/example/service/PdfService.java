@@ -1,54 +1,78 @@
 package com.example.service;
 
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.LineSeparator;
-import com.itextpdf.kernel.pdf.canvas.draw.DashedLine;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.layout.properties.VerticalAlignment;
+import com.itextpdf.layout.borders.Border;
 import java.io.FileOutputStream;
 
 public class PdfService {
 
-    public void gerarOrdemServico(String caminhoArquivo, String nome, String cpf, String produto, String marca, String modelo, String serie, String condicao, String defeito, double valor) {
+    public void gerarOrdemServico(int numeroOs, String caminhoArquivo, String nome, String cpf, String produto, String marca, String modelo, String serie, String condicao, String defeito, double valor) {
         try {
             PdfWriter writer = new PdfWriter(new FileOutputStream(caminhoArquivo));
             PdfDocument pdf = new PdfDocument(writer);
             Document document = new Document(pdf);
 
-            // Cabeçalho Principal
-            document.add(new Paragraph("TVSOMREPARO").setBold().setFontSize(22));
-            document.add(new Paragraph("ASSISTÊNCIA TÉCNICA EM TV E SOM").setFontSize(10));
-            document.add(new Paragraph("TÉCNICO RESPONSÁVEL: Ademar Junior. CPF: 999.888.777.05").setFontSize(10));
-            
-            // Linha tracejada separadora
-            DashedLine line = new DashedLine(1f);
-            document.add(new LineSeparator(line));
+            // --- CABEÇALHO: LOGO À ESQUERDA | INFOS À DIREITA ---
+            Table headerTable = new Table(UnitValue.createPercentArray(new float[]{40, 60})).useAllAvailableWidth();
+            headerTable.setBorder(Border.NO_BORDER);
 
-            // Tabela de Informações (Grade de 2 colunas)
-            Table table = new Table(UnitValue.createPercentArray(new float[]{50, 50})).useAllAvailableWidth();
-            
-            table.addCell(new Cell().add(new Paragraph("Nome: " + nome)));
-            table.addCell(new Cell().add(new Paragraph("Produto: " + produto)));
-            
-            table.addCell(new Cell().add(new Paragraph("CPF/CNPJ: " + cpf)));
-            table.addCell(new Cell().add(new Paragraph("Marca: " + marca)));
-            
-            table.addCell(new Cell().add(new Paragraph("Modelo: " + modelo)));
-            table.addCell(new Cell().add(new Paragraph("Nº Série: " + serie)));
-            
-            table.addCell(new Cell(1, 2).add(new Paragraph("Condição Geral: " + condicao)));
-            table.addCell(new Cell(1, 2).add(new Paragraph("DESCRIÇÃO DO PROBLEMA: " + defeito)));
-            table.addCell(new Cell(1, 2).add(new Paragraph("VALOR SERVIÇO: R$ " + valor).setBold()));
+            // Coluna da Esquerda: Logotipo
+            Cell logoCell = new Cell().setBorder(Border.NO_BORDER);
+            try {
+                // Ajustado para o seu arquivo específico
+                Image logo = new Image(ImageDataFactory.create("demo/src/main/resources/logo_tvsomreparo.png"));
+                logo.setWidth(120); // Aumentei um pouco para compensar os 100px e manter nítido
+                logoCell.add(logo);
+            } catch (Exception e) {
+                logoCell.add(new Paragraph("TVSOMREPARO").setBold().setFontSize(18));
+            }
+            headerTable.addCell(logoCell);
 
-            document.add(table);
+            // Coluna da Direita: Informações da OS
+            Cell infoCell = new Cell().setBorder(Border.NO_BORDER);
+            infoCell.setTextAlignment(TextAlignment.CENTER);
+            infoCell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+            infoCell.add(new Paragraph("ELETRÔNICA TVSOMREPARO").setBold().setFontSize(18));
+            infoCell.add(new Paragraph("ORDEM DE SEVIÇO:").setBold().setFontSize(16));
+            infoCell.add(new Paragraph(String.format("Nº OS: %04d", numeroOs)).setBold().setFontSize(14).setFontColor(new DeviceRgb(0, 0, 255)));
+            infoCell.add(new Paragraph("TÉCNICO RESPONSÁVEL: Ademar Junior.").setFontSize(10));
+            infoCell.add(new Paragraph("CPF: 999.888.777.05").setFontSize(10));
+            headerTable.addCell(infoCell);
 
+            document.add(headerTable);
+            
+            // Linha divisória
+            document.add(new Paragraph("______________________________________________________________________________")
+                    .setBold().setMarginBottom(10));
+
+            // --- TABELA DE DADOS ---
+            Table dataTable = new Table(UnitValue.createPercentArray(new float[]{50, 50})).useAllAvailableWidth();
+            dataTable.addCell(new Cell().add(new Paragraph("Nome: " + nome)));
+            dataTable.addCell(new Cell().add(new Paragraph("Produto: " + produto)));
+            dataTable.addCell(new Cell().add(new Paragraph("CPF/CNPJ: " + cpf)));
+            dataTable.addCell(new Cell().add(new Paragraph("Marca: " + marca)));
+            dataTable.addCell(new Cell().add(new Paragraph("Modelo: " + modelo)));
+            dataTable.addCell(new Cell().add(new Paragraph("Nº Série: " + serie)));
+            dataTable.addCell(new Cell(1, 2).add(new Paragraph("Condição física do produto: " + condicao)));
+            dataTable.addCell(new Cell(1, 2).add(new Paragraph("DESCRIÇÃO DO PROBLEMA: " + defeito).setMinHeight(50)));
+            dataTable.addCell(new Cell(1, 2).add(new Paragraph("VALOR SERVIÇO: R$ " + valor).setBold().setFontSize(12)));
+
+            document.add(dataTable);
+
+            // --- RODAPÉ ---
             // Cláusulas Legais (Texto menor conforme original)
-            document.add(new Paragraph("\nCONDIÇÕES GERAIS:").setBold().setFontSize(11));
+            document.add(new Paragraph("\nOBSERVAÇÕES GERAIS:").setBold().setFontSize(11));
             document.add(new Paragraph("1. Preço sujeito a alteração até a conclusão dos serviços.").setFontSize(8));
             document.add(new Paragraph("2. Quanto tempo a loja pode guardar o produto?").setFontSize(8));
             document.add(new Paragraph("3. Conclusão, podemos concluir que é razoável dizer que o consumidor/cliente tem prazo\r\n" + //
