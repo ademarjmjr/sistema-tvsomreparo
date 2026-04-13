@@ -66,8 +66,14 @@ public class PdfService {
             dataTable.addCell(new Cell().add(new Paragraph("Nº Série: " + serie)));
             dataTable.addCell(new Cell(1, 2).add(new Paragraph("Condição física do produto: " + condicao)));
             dataTable.addCell(new Cell(1, 2).add(new Paragraph("DESCRIÇÃO DO PROBLEMA: " + defeito).setMinHeight(50)));
-            dataTable.addCell(new Cell(1, 2).add(new Paragraph("VALOR SERVIÇO: R$ " + valor).setBold().setFontSize(12)));
+            String valorTexto = (valor == 0) ? "ORÇAMENTO PENDENTE" : String.format("R$ %.2f", valor);
 
+            dataTable.addCell(
+                new Cell(1, 2)
+                    .add(new Paragraph("VALOR SERVIÇO: " + valorTexto)
+                    .setBold()
+                    .setFontSize(12))
+            );
             document.add(dataTable);
 
             // --- RODAPÉ ---
