@@ -8,6 +8,7 @@ public class App {
         // 1. Instancia o serviço de PDF que criamos
         PdfService pdfService = new PdfService();
 
+        new GerenciamentoOSInterface().setVisible(true);
         // 2. Define o local onde o PDF será salvo (na pasta do projeto)
         String caminhoArquivo = "OS_Teste_TVSOMREPARO.pdf";
 
@@ -33,4 +34,5 @@ public class App {
             System.out.println("Erro: O arquivo não foi encontrado.");
         }
     }
+
 }

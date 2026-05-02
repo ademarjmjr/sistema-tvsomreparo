@@ -1,11 +1,25 @@
 package com.example;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
 import com.example.service.PdfService;
+import javax.swing.text.MaskFormatter;
+//import java.nio.file.Files;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.io.*;
 
 public class PrincipalInterface extends JFrame {
+
+    private final String URL = "jdbc:mysql://localhost:3306/tvsom_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC";
+    private final String USER = "root";
+    private final String PASS = "1234";
 
     private JTextField txtBusca, txtNumeroOs, txtNome, txtCpf,
             txtProduto, txtMarca, txtModelo, txtSerie, txtValor;
@@ -18,6 +32,7 @@ public class PrincipalInterface extends JFrame {
 
     // CONTROLE AUTOMÁTICO DA OS
     private static int proximoNumeroOs = 1;
+    private final String ARQUIVO_CONTADOR = "ultimo_numero_os.txt";
 
     public PrincipalInterface() {
 
@@ -25,6 +40,9 @@ public class PrincipalInterface extends JFrame {
         setSize(1000, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+
+        //criarTelaInicial();
+        //setVisible(true);
 
         Font fonte = new Font("Segoe UI", Font.PLAIN, 13);
         UIManager.put("Label.font", fonte);
@@ -40,11 +58,31 @@ public class PrincipalInterface extends JFrame {
         JPanel painelBusca = new JPanel(new FlowLayout(FlowLayout.LEFT));
         painelBusca.setBackground(fundoSistema);
 
-        painelBusca.add(new JLabel("🔍 Pesquisar OS (Nº):"));
+        painelBusca.add(new JLabel(" Pesquisar OS (Nº):"));
         txtBusca = new JTextField(10);
         painelBusca.add(txtBusca);
 
         JButton btnBuscar = new JButton("Buscar");
+
+        btnBuscar.addActionListener(e -> {
+            String busca = txtBusca.getText().trim();
+            if (!busca.isEmpty()) {
+                try {
+                    // Formata o número (ex: 2 vira OS_0002.pdf)
+                    int num = Integer.parseInt(busca);
+                    String nomeArquivo = String.format("OS_%04d.pdf", num);
+                    java.io.File arquivo = new java.io.File(nomeArquivo);
+
+                    if (arquivo.exists()) {
+                        java.awt.Desktop.getDesktop().open(arquivo);
+                    } else {
+                        javax.swing.JOptionPane.showMessageDialog(this, "OS não encontrada: " + nomeArquivo);
+                    }
+                } catch (Exception ex) {
+                    javax.swing.JOptionPane.showMessageDialog(this, "Digite um número válido.");
+                }
+            }
+        });
         painelBusca.add(btnBuscar);
 
         painelMestre.add(painelBusca, BorderLayout.NORTH);
@@ -82,6 +120,7 @@ public class PrincipalInterface extends JFrame {
         btnGerar.setBorder(new EmptyBorder(10, 20, 10, 20));
         btnGerar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnGerar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        this.getRootPane().setDefaultButton(btnBuscar);
 
         btnGerar.addActionListener(e -> acaoGerarPdf());
 
@@ -91,12 +130,159 @@ public class PrincipalInterface extends JFrame {
 
         // GERA PRIMEIRA OS AUTOMATICAMENTE
         gerarNovoNumeroOs();
+
+        configurarSomenteLetras(txtNome);
+        configurarCPFFormatado(txtCpf);
+        //configurarValidacaoVisualCPF(txtCpf);    
+
+        configurarPuloComEnter(txtNome);
+        configurarPuloComEnter(txtCpf);     
+        configurarPuloComEnter(txtProduto);
+        configurarPuloComEnter(txtMarca);
+        configurarPuloComEnter(txtModelo);
+        configurarPuloComEnter(txtSerie);
+        configurarPuloComEnter(txtValor);
+    }
+    
+    private void configurarSomenteLetras(javax.swing.JTextField campo) {
+        ((javax.swing.text.AbstractDocument) campo.getDocument()).setDocumentFilter(new javax.swing.text.DocumentFilter() {
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, javax.swing.text.AttributeSet attrs) 
+                    throws javax.swing.text.BadLocationException {
+
+                // Permite vazio também
+                if (text.isEmpty() || text.matches("[a-zA-Z\\s\\p{L}]+")) {
+                    super.replace(fb, offset, length, text, attrs);
+                }
+            }
+        });
+    }
+    
+    private void configurarCPFFormatado(javax.swing.JTextField campo) {
+        ((javax.swing.text.AbstractDocument) campo.getDocument()).setDocumentFilter(new javax.swing.text.DocumentFilter() {
+
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, javax.swing.text.AttributeSet attrs)
+                    throws javax.swing.text.BadLocationException {
+
+                String textoAtual = fb.getDocument().getText(0, fb.getDocument().getLength());
+
+                // Monta o novo texto como se fosse inserir normalmente
+                String novoTexto = textoAtual.substring(0, offset) + text + textoAtual.substring(offset + length);
+
+                // Remove tudo que não é número
+                String numeros = novoTexto.replaceAll("[^0-9]", "");
+
+                // Limita a 11 dígitos
+                if (numeros.length() > 11) {
+                    numeros = numeros.substring(0, 11);
+                }
+
+                // Aplica a máscara
+                StringBuilder formatado = new StringBuilder();
+
+                for (int i = 0; i < numeros.length(); i++) {
+                    if (i == 3 || i == 6) {
+                        formatado.append(".");
+                    } else if (i == 9) {
+                        formatado.append("-");
+                    }
+                    formatado.append(numeros.charAt(i));
+                }
+
+                // Substitui tudo no campo
+                fb.replace(0, fb.getDocument().getLength(), formatado.toString(), attrs);
+            }
+        });
     }
 
+    private boolean validarCPF(String cpf) {
+        cpf = cpf.replaceAll("[^0-9]", "");
+
+        // Deve ter 11 dígitos
+        if (cpf.length() != 11) return false;
+
+        // Elimina CPFs inválidos conhecidos (todos iguais)
+        if (cpf.matches("(\\d)\\1{10}")) return false;
+
+        try {
+            int soma = 0;
+            int peso = 10;
+
+            // 1º dígito
+            for (int i = 0; i < 9; i++) {
+                soma += (cpf.charAt(i) - '0') * peso--;
+            }
+
+            int dig1 = 11 - (soma % 11);
+            if (dig1 > 9) dig1 = 0;
+
+            // 2º dígito
+            soma = 0;
+            peso = 11;
+
+            for (int i = 0; i < 10; i++) {
+                soma += (cpf.charAt(i) - '0') * peso--;
+            }
+
+            int dig2 = 11 - (soma % 11);
+            if (dig2 > 9) dig2 = 0;
+
+            // Verifica se bate
+            return dig1 == (cpf.charAt(9) - '0') &&
+                dig2 == (cpf.charAt(10) - '0');
+
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    /*     
+    private void configurarValidacaoVisualCPF(javax.swing.JTextField campo) {
+        campo.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                String cpf = campo.getText();
+
+                if (cpf.isEmpty()) {
+                    campo.setBackground(java.awt.Color.WHITE);
+                    return;
+                }
+
+                if (validarCPF(cpf)) {
+                    campo.setBackground(new java.awt.Color(198, 239, 206)); // verde claro
+                } else {
+                    campo.setBackground(new java.awt.Color(255, 199, 206)); // vermelho claro
+                }
+            }
+        });
+    }
+    */
     // GERA NOVO NÚMERO
     private void gerarNovoNumeroOs() {
+        proximoNumeroOs = carregarUltimoNumero();
+        salvarProximoNumero(proximoNumeroOs);
         txtNumeroOs.setText(String.format("%04d", proximoNumeroOs));
         txtNumeroOs.setEditable(false); // bloqueia edição
+    }
+    // CARREGA O ÚLTIMO NÚMERO DE OS GERADO (SE EXISTIR)
+    private int carregarUltimoNumero() {
+        try {
+            if (Files.exists(Paths.get(ARQUIVO_CONTADOR))) {
+                String conteudo = Files.readString(Paths.get(ARQUIVO_CONTADOR)).trim();
+                return Integer.parseInt(conteudo);
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao ler contador, iniciando em 1.");
+        }
+        return 1;
+    }
+
+    private void salvarProximoNumero(int numero) {
+        try {
+            Files.writeString(Paths.get(ARQUIVO_CONTADOR), String.valueOf(numero));
+        } catch (IOException e) {
+            System.err.println("Erro ao salvar contador.");
+        }
     }
 
     // Card
@@ -145,7 +331,7 @@ public class PrincipalInterface extends JFrame {
 
         return p;
     }
-
+    
     private JPanel criarPainelDescricoes() {
         JPanel p = new JPanel(new GridLayout(2, 1, 10, 10));
         p.setBackground(fundoSistema);
@@ -154,6 +340,7 @@ public class PrincipalInterface extends JFrame {
         p.add(criarAreaTexto("Descrição do Defeito:", txtDefeito = new JTextArea()));
 
         return p;
+    
     }
 
     private JPanel criarAreaTexto(String titulo, JTextArea area) {
@@ -191,25 +378,85 @@ public class PrincipalInterface extends JFrame {
     }
 
     private void acaoGerarPdf() {
-    try {
-        int numOs = Integer.parseInt(txtNumeroOs.getText());
+        // Validação campos obrigatórios
+        if (txtNome.getText().trim().isEmpty() || txtProduto.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, 
+                "Erro: O Nome do Cliente e o Produto são obrigatórios!", 
+                "Campos Vazios", 
+                JOptionPane.WARNING_MESSAGE);
 
-        // CORREÇÃO DO VALOR (AGORA PODE SER VAZIO)
-        double valor = 0.0;
-        String textoValor = txtValor.getText().trim();
-
-        if (!textoValor.isEmpty()) {
-            try {
-                valor = Double.parseDouble(textoValor.replace(",", "."));
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Valor inválido!");
-                return;
-            }
+            txtNome.requestFocus();
+            return;
         }
 
-        String nomeArquivo = "OS_" + String.format("%04d", numOs) + ".pdf";
+        // VALIDAÇÃO DO CPF (AQUI É O LUGAR CERTO)
+        /* 
+        String cpf = txtCpf.getText().trim();
 
-        pdfService.gerarOrdemServico(
+        if (!cpf.isEmpty() && !validarCPF(cpf)) {
+            JOptionPane.showMessageDialog(
+                this,
+                "CPF inválido!",
+                "Erro",
+                JOptionPane.ERROR_MESSAGE
+            );
+            txtCpf.requestFocus();
+            return; // BLOQUEIA antes de gerar PDF
+        }*/
+
+        // SQL atualizado com os novos campos
+        String sql = "INSERT INTO ordens_servico (id_os, cliente_nome, cliente_cpf, aparelho_modelo, aparelho_marca, aparelho_serie, status_os, valor_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASS);
+            PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            // 1. Número da OS
+            stmt.setInt(1, Integer.parseInt(txtNumeroOs.getText()));
+            
+            // 2. Cliente
+            stmt.setString(2, txtNome.getText());
+            stmt.setString(3, txtCpf.getText());
+            
+            // 3. Aparelho (Produto/Modelo/Marca/Série)
+            // Aqui você pode concatenar o Produto com o Modelo se preferir, ou usar apenas o Modelo
+            stmt.setString(4, txtModelo.getText()); 
+            stmt.setString(5, txtMarca.getText());
+            stmt.setString(6, txtSerie.getText());
+            
+            // 4. Status Inicial
+            stmt.setString(7, "Espera de orçamento");
+
+            // 5. Tratamento do Valor (Se vazio, vira 0.0)
+            String valorTexto = txtValor.getText().replace(",", ".").trim();
+            double valor = valorTexto.isEmpty() ? 0.0 : Double.parseDouble(valorTexto);
+            stmt.setDouble(8, valor);
+            
+            stmt.executeUpdate();
+            JOptionPane.showMessageDialog(null, "OS Gerada com Sucesso!");
+            
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(null, "Erro ao salvar no banco: " + e.getMessage());
+        }
+        
+        try {
+            int numOs = Integer.parseInt(txtNumeroOs.getText());
+
+            // CORREÇÃO DO VALOR (AGORA PODE SER VAZIO)
+            double valor = 0.0;
+            String textoValor = txtValor.getText().trim();
+
+            if (!textoValor.isEmpty()) {
+                try {
+                    valor = Double.parseDouble(textoValor.replace(",", "."));
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(this, "Valor inválido!");
+                    return;
+                }
+            }
+
+            String nomeArquivo = "OS_" + String.format("%04d", numOs) + ".pdf";
+
+            pdfService.gerarOrdemServico(
                 numOs,
                 nomeArquivo,
                 txtNome.getText(),
@@ -221,18 +468,57 @@ public class PrincipalInterface extends JFrame {
                 txtCondicao.getText(),
                 txtDefeito.getText(),
                 valor
-        );
+            );
 
-        JOptionPane.showMessageDialog(this, "OS Gerada com Sucesso!");
+            JOptionPane.showMessageDialog(this, "OS Gerada com Sucesso!");
+            // Dentro do botão Gerar PDF, após criar o PDF com sucesso:
+            try (Connection conn = ConexaoBanco.getConexao()) {
+                String sqlInsert = "INSERT INTO ordens_servico (id_os, status_os) VALUES (?, 'Espera de orçamento')";
+                PreparedStatement st = conn.prepareStatement(sqlInsert);
+                st.setInt(1, Integer.parseInt(txtNumeroOs.getText())); // Pega o número da OS que você digitou
+                st.executeUpdate();
+            } catch (Exception e) {
+                // Se já existir, ele só ignora ou você pode tratar o erro
+                System.out.println("Nota: Registro inicial da OS já existia ou erro de conexão.");
+            }
 
-        // INCREMENTA PARA PRÓXIMA OS
-        proximoNumeroOs++;
-        gerarNovoNumeroOs();
+            // INCREMENTA PARA PRÓXIMA OS
+            //proximoNumeroOs++;
+            salvarProximoNumero(numOs + 1);
+            gerarNovoNumeroOs();
 
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+            limparCampos(); 
+            txtNumeroOs.setText(String.valueOf(numOs + 1)); // Atualiza para o novo número
+            txtNome.requestFocus();limparCampos();
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+            }
         }
-    }
+   
+        private void limparCampos() {
+            txtNome.setText("");
+            txtCpf.setText("");
+
+            txtProduto.setText("");
+            txtMarca.setText("");
+            txtModelo.setText("");
+            txtSerie.setText("");
+            txtCondicao.setText("");
+            txtDefeito.setText("");
+            txtValor.setText("");
+        }
+
+        private void configurarPuloComEnter(javax.swing.JTextField campo) {
+            campo.addKeyListener(new java.awt.event.KeyAdapter() {
+                @Override
+                public void keyPressed(java.awt.event.KeyEvent e) {
+                    if (e.getKeyCode() == java.awt.event.KeyEvent.VK_ENTER) {
+                        campo.transferFocus(); // Pula para o próximo componente na ordem
+                    }
+                }
+            });
+        }
 
     public static void main(String[] args) {
         try {
@@ -241,4 +527,5 @@ public class PrincipalInterface extends JFrame {
 
         SwingUtilities.invokeLater(() -> new PrincipalInterface().setVisible(true));
     }
+        
 }

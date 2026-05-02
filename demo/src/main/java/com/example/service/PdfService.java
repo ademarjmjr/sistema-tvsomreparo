@@ -66,8 +66,16 @@ public class PdfService {
             dataTable.addCell(new Cell().add(new Paragraph("Nº Série: " + serie)));
             dataTable.addCell(new Cell(1, 2).add(new Paragraph("Condição física do produto: " + condicao)));
             dataTable.addCell(new Cell(1, 2).add(new Paragraph("DESCRIÇÃO DO PROBLEMA: " + defeito).setMinHeight(50)));
-            String valorTexto = (valor == 0) ? "ORÇAMENTO PENDENTE" : String.format("R$ %.2f", valor);
+            //String valorTexto = (valor == 0) ? "ORÇAMENTO PENDENTE" : String.format("R$ %.2f", valor);
+            String valorTexto;
+            if (valor == 0) {
+                valorTexto = "ORÇAMENTO PENDENTE";
+            } else {
+                    valorTexto = String.format("R$ %.2f", valor);
+            }
 
+            infoCell.add(new Paragraph("VALOR SERVIÇO: " + valorTexto).setBold());
+            
             dataTable.addCell(
                 new Cell(1, 2)
                     .add(new Paragraph("VALOR SERVIÇO: " + valorTexto)
